@@ -1,0 +1,14 @@
+# config.yml
+
+DATA_DIR: data        # directory with input data (obtained from database)
+LOG_DIR: data_log     # directory with output data (the event log)
+STATS_DIR: stats      # directory with event log statistics
+EVENTS_FILE: events.csv
+QUIZ_FILE: quiz.csv
+QUIZ_STATS_FILE: quiz_stats.csv
+SURVEY_GOOGLE_FILE: survey_google.csv # raw file from Google (input)
+SURVEY_GOOGLE_FILE_CLEAN: survey_google_clean.csv # cleaned file from Google 
+SURVEY_GOOGLE_FILE_CLEAN_MAP: survey_google_clean_map.csv # mapping of Q_i
+SURVEY_GOOGLE_KEY_COLUMN: Form blueprint # the session-id / case-id
+SURVEY_GOOGLE_FILE_STATS: survey_google_stats.csv # stats about SURVEY_GOOGLE_FILE_CLEAN
+CSV_SEP: ;
