@@ -8,7 +8,7 @@ Web tutorial from which events were recorded: [https://webtutorial.altervista.or
 
 ### > Script Execution
 ```01_survey_clean.py```
-Starting from the raw survey data (```SURVEY_GOOGLE_FILE```), it cleans the columns with the answers and creates a new file with the name defined in ```SURVEY_FILE_CLEAN```.  
+Starting from the raw survey data (```SURVEY_GOOGLE_FILE```), it cleans the columns with the answers and creates a new file with the name defined in ```SURVEY_FILE_CLEAN```. Save statistics in ```STATS_DIR```.  
 ```02_quiz_clean.py```  
 Starting from the raw quiz data (```QUIZ_FILE```), it extracts quiz statistics for each sessionID (total quizzes, correct, incorrect, percentage of correct). Create a new file in ```QUIZ_STATS_FILE```.    
 ```03_csv_to_log.py```  

@@ -1,4 +1,4 @@
-# 01_csv_to_log.py
+# 02_quiz_clean.py
 
 ### IMPORT ###
 from pathlib import Path
@@ -8,7 +8,7 @@ import pandas as pd
 
 ### LOCAL IMPORT ###
 from config import config_reader
-from utilities import df_read_csv_data, df_get_unique_values, df_show_data, df_retain_columns, df_rename_columns, dict_with_formatting 
+from utilities import df_read_csv_data
 
 ### GLOBALS ###
 yaml_config = config_reader.config_read_yaml("config.yml", "config")

@@ -1,5 +1,4 @@
 # 01_survey_clean.py
-# Starting from the raw survey data (SURVEY_FILE), it cleans the columns with the answers and creates a new file with the name defined in SURVEY_FILE_CLEAN.
 
 ### IMPORT ###
 from pathlib import Path
