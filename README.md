@@ -12,7 +12,7 @@ Starting from the raw survey data (```SURVEY_GOOGLE_FILE```), it cleans the colu
 ```02_quiz_clean.py```  
 Starting from the raw quiz data (```QUIZ_FILE```), it extracts quiz statistics for each sessionID (total quizzes, correct, incorrect, percentage of correct). Create a new file in ```QUIZ_STATS_FILE```.    
 ```03_csv_to_log.py```  
-Starting from the raw events data (```EVENTS_FILE```), it extracts the events for an event log, adding the quiz and survey data obtained from the previously executed scripts. Saves the event log at page (_PAGE_) and paragraph level (_PARA_).   
+Starting from the raw events data (```EVENTS_FILE```), it extracts the events for an event log, adding the quiz and survey data obtained from the previously executed scripts. Saves the event log at page (```_PAGE_```) and paragraph level (```_PARA_```).   
 
 ### > Script Dependencies
 See ```requirements.txt``` for the required libraries (```pip install -r requirements.txt```).  
@@ -23,7 +23,7 @@ Directory with the configuration file in YAML format (```config.yml```) and scri
 ```data```  
 Data raw obtained from the database (in CSV format).  
 ```data_log```    
-Event log raw obtained from database (in CSV format) to be filtered in DISCO or ProM; ```edu_event_log_PAGE_raw.csv``` is the event log at the web page level, ```edu_event_log_PARA_raw.csv``` is the event log at the paragraph level of the web page.  
+Event log raw obtained from database (in CSV format) to be filtered in DISCO or ProM; ```*_PAGE_*.csv``` is the event log at the web page level, ```*_PARA_*.csv``` is the event log at the paragraph level of the web page.  
 ```stats```    
 Survey, quiz, and event log statistics. 
 
