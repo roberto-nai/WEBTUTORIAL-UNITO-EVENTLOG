@@ -88,7 +88,13 @@ def main():
 
     print("> Saving Quiz ratio totals")
     path_out = Path(stats_dir) / quiz_stats_file
-    df_quiz_ratio.to_csv(path_out,sep=";", index=False)
+    # CSV
+    print("Path (CSV):", path_out)
+    df_quiz_ratio.to_csv(path_out, sep=";", index=False)
+    # XLS
+    path_out = Path(stats_dir) / f"{Path(quiz_stats_file).stem}.xlsx"
+    print("Path (XLSX):", path_out)
+    df_quiz_ratio.to_excel(path_out, sheet_name=f"{Path(quiz_stats_file).stem}", index=False)
 
     # program END
     end_time = datetime.now().replace(microsecond=0)

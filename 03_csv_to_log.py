@@ -8,7 +8,7 @@ import pandas as pd
 
 ### LOCAL IMPORT ###
 from config import config_reader
-from utilities import df_read_csv_data, df_get_unique_values, df_show_data, df_retain_columns, df_rename_columns, dict_with_formatting 
+from utilities import df_read_csv_data, df_get_unique_values, df_show_data, df_retain_columns, df_rename_columns, dict_with_formatting, df_remove_rows_with_substring 
 
 ### GLOBALS ###
 yaml_config = config_reader.config_read_yaml("config.yml", "config")
@@ -259,9 +259,12 @@ def main():
     # Create and event log at page-level (column "event", value "PageIN")
     print(">> Creating event log at page level")
     col_log = ["sessionID", "pageTitle", "menu", "pageOrder", "pagePara", "event", "lastUpdate"]
-    # Filter the DataFrame for rows where 'event' is 'PageIN'
-    df_log_page = df_events.loc[df_events['event'] == 'PageIN']
+    # Specific for PAGE level
+    # Filter the DataFrame for rows where 'event' is 'PageIN' (od click/dbclick for frequency)
+    event_list = ['PageIN'] + clik_event_list
+    df_log_page = df_events.loc[df_events['event'].isin(event_list)]
     df_log_page = df_retain_columns(df_log_page, col_log)
+    # Common to PAGE / PARA level
     # Define a dictionary for renaming columns
     rename_dict = {'event': 'eventPage','lastUpdate': 'eventTimestamp'}
     df_log_page = df_rename_columns(df_log_page, rename_dict)
@@ -270,6 +273,8 @@ def main():
     df_log_page = find_and_fix_ts_duplicates(df_log_page)
     # Adds the number of clicks and double clicks for each sessionID
     df_log_page = add_event_counts(df_log_page, clik_event_list)
+    # Removes click/dbclick events
+    df_log_page = df_remove_rows_with_substring(df_log_page, clik_event_list, ["eventPage", "eventPara"])
     # Show th final data
     df_show_data(df_log_page)
     print()
@@ -277,8 +282,10 @@ def main():
     # Create and event log at para-level (column "event")
     print(">> Creating event log at para level")
     col_log = ["sessionID", "pageTitle", "menu", "pageOrder", "pagePara", "event", "lastUpdate", "eventPara"]
+    # Specific for PARA level
     df_log_para = add_event_para_column(df_events)
     df_log_para = df_retain_columns(df_log_para, col_log)
+    # Common to PAGE / PARA level
     # Define a dictionary for renaming columns
     rename_dict = {'event': 'eventPage','lastUpdate': 'eventTimestamp'}
     df_log_para = df_rename_columns(df_log_para, rename_dict)
@@ -287,6 +294,8 @@ def main():
     df_log_para = find_and_fix_ts_duplicates(df_log_para)
     # Adds the number of clicks and double clicks for each sessionID
     df_log_para = add_event_counts(df_log_para, clik_event_list)
+    # Removes click/dbclick events
+    df_log_para = df_remove_rows_with_substring(df_log_para, clik_event_list, ["eventPage", "eventPara"])
     # Show th final data
     df_show_data(df_log_para)
     print()
@@ -359,7 +368,6 @@ def main():
     
     # Saving
     print("> Saving")
-    print()
     path_out = Path(log_dir) / "edu_event_log_PAGE_raw.csv"
     print("Saving final event log to:", path_out)
     df_log_merge_2_page_final.to_csv(path_out, sep=";", index=False)
@@ -369,11 +377,15 @@ def main():
     df_log_merge_2_para_final.to_csv(path_out, sep=";", index=False)
     print()
 
+    # Stats
     print(">> Getting path menu by sessionID")
     df_menu = extract_distinct_menu_per_session(df_log_merge_2_page_final, "sessionID", "menu")
     path_out = Path(stats_dir) / "menu_stats.csv"
-    print("Saving menu list:", path_out)
+    print("Saving menu stats (CSV):", path_out)
     df_menu.to_csv(path_out, sep=";", index=False)
+    path_out = Path(stats_dir) / "menu_stats.xlsx"
+    print("Saving menu stats (XLSX):", path_out)
+    df_menu.to_excel(path_out, sheet_name="menu_stats", index=False)
     print()
 
     # program END

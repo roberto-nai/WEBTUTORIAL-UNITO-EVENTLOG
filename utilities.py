@@ -145,3 +145,35 @@ def df_count_distinct_id(df: pd.DataFrame, keyword:str, key_column:str) -> int:
     distinct_session_count = unique_sessions.count()
 
     return distinct_session_count
+
+
+def df_remove_rows_with_substring(df:pd.DataFrame, substrings_to_remove:list, columns_to_check:list):
+    """
+    Removes rows from a DataFrame where specified columns contain any of the given substrings.
+
+    Parameters:
+        df (pd.DataFrame): The DataFrame from which rows will be removed.
+        substrings_to_remove (list of str): A list of substrings to search for within the specified columns.
+        columns_to_check (list of str): A list of columns to check for the presence of the substrings.
+
+    Returns:
+        pd.DataFrame: A DataFrame with rows removed where any of the specified columns contain any of the substrings.
+    """
+    # Check if the specified columns are present in the DataFrame
+    columns_present = [col for col in columns_to_check if col in df.columns]
+    
+    # If none of the specified columns are present, return the original DataFrame
+    if not columns_present:
+        return df
+    
+    # Create a boolean mask to identify the rows to remove
+    mask = pd.Series([False] * len(df))
+    
+    for col in columns_present:
+        for substring in substrings_to_remove:
+            mask = mask | df[col].str.contains(substring, case=False, na=False)
+    
+    # Remove the rows that match the mask
+    cleaned_df = df[~mask]
+    
+    return cleaned_df
