@@ -33,6 +33,8 @@ dic_en_pageTitle = {'Introduzione':'INTRO', 'Introduzione-Quiz':'INTRO-Q', 'Prim
 dic_en_event = {'ingressoPagina':'PageIN', 'mouseover':'MouseIN', 'mouseout':'MouseOUT', 'mouseenter':'MouseENT',
                 'uscitaPagina':'PageOUT', 'click':'CLICK', 'dbclick':'DBCLICK'}
 
+clik_event_list = ['CLICK', 'DBCLICK'] # Frequency events per sessionID
+
 ### FUNCTIONS ###
 def replace_page_titles(df: pd.DataFrame, mapping_dict: dict) -> pd.DataFrame:
     """
@@ -48,7 +50,7 @@ def replace_page_titles(df: pd.DataFrame, mapping_dict: dict) -> pd.DataFrame:
     df['pageTitle'] = df['pageTitle'].replace(mapping_dict)
     return df
 
-def add_eventPara_column(df: pd.DataFrame) -> pd.DataFrame:
+def add_event_para_column(df: pd.DataFrame) -> pd.DataFrame:
     """
     Adds a new column 'eventPara' to the DataFrame by concatenating 'pageTitle', 'event', and 'pagePara'.
 
@@ -79,8 +81,16 @@ def add_eventPara_column(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 def find_and_fix_ts_duplicates(df_input: pd.DataFrame) -> pd.DataFrame:
-    # Instead of sorting on the initial three columns, sort the DataFrame by "sessionID" and "eventTimestamp".
-    # This ensures that any duplicates are adjacent to each other.
+    """
+    Adds 1 second to equal timestamps for sessionID.
+    Instead of sorting on the initial three columns, sort the DataFrame by "sessionID" and "eventTimestamp". This ensures that any duplicates are adjacent to each other. 
+
+    Parameters:
+        df_input (pd.DataFrame): The dataframe containing the data.
+
+    Returns:
+        pd.DataFrame: A dataframe with eventTimestamp fixed (if needed).
+    """
     
     df_input_len = len(df_input)
 
@@ -95,11 +105,10 @@ def find_and_fix_ts_duplicates(df_input: pd.DataFrame) -> pd.DataFrame:
         if (df_sorted.iloc[i]['sessionID'] == df_sorted.iloc[i - 1]['sessionID']) and (df_sorted.iloc[i]['eventTimestamp'] == df_sorted.iloc[i - 1]['eventTimestamp']):
             # Increment the 'eventTimestamp' by 1 second from the previous row
             count_duplicates += 1
-            print(f"Duplicated found at sessionID {df_sorted.iloc[i]['sessionID']}")
+            # print(f"Duplicated found at sessionID {df_sorted.iloc[i]['sessionID']}") # debug
             # print("Old value (duplicate):", df_sorted.iloc[i]['eventTimestamp'], "=", df_sorted.iloc[i-1]['eventTimestamp']) # debug
             df_sorted.iloc[i, df_sorted.columns.get_loc('eventTimestamp')] += pd.Timedelta(seconds=1)
             # print("New value for row:", i, ":", df_sorted.iloc[i, df_sorted.columns.get_loc('eventTimestamp')]) # debug
-            print()
 
     print(f"Duplicates corrected: {count_duplicates} / {df_input_len}")
     print()
@@ -109,7 +118,7 @@ def count_distinct_sessions_by_title(df: pd.DataFrame, keyword:str) -> int:
     """
     Counts distinct sessionIDs in the DataFrame where the pageTitle column contains the specified keyword.
 
-    Args:
+    Parameters:
         df (pd.DataFrame): The DataFrame to be processed.
         keyword (str): The keyword to filter by in the pageTitle column.
 
@@ -195,6 +204,27 @@ def extract_distinct_menu_per_session(df: pd.DataFrame, key_column: str, menu_co
     
     return grouped_df
 
+def add_event_counts(df:pd.DataFrame, event_list:list) -> pd.DataFrame:
+    """
+    Adds columns to the dataframe for the count of specified events.
+    
+    Parameters:
+        df (pandas.DataFrame): The input dataframe containing 'sessionID' and 'eventPage' columns.
+        events (list): A list of event names to count and add as new columns.
+    
+    Returns:
+        pandas.DataFrame: The dataframe with added event count columns.
+    """
+    
+    for event in event_list:
+        col_name = f'{event}_num'.lower()
+        event_count = df[df['eventPage'] == event].groupby('sessionID').size().reset_index(name=col_name)
+        df = df.merge(event_count, on='sessionID', how='left')
+        df[col_name] = df[col_name].fillna(0).astype(int)
+    
+    return df
+
+
 ### MAIN ###
 def main():
     print()
@@ -222,7 +252,7 @@ def main():
     for key in dic_en_event:
         df_events['event'] = df_events['event'].replace([key], dic_en_event[key])
 
-    # Create a list of distinct values to check the data
+    # Create a list of distinct values to check the data (and print it)
     df_events_unique = df_get_unique_values(df_events, col_list_unique)
     dict_with_formatting(df_events_unique) 
 
@@ -238,13 +268,16 @@ def main():
     print("> Fix duplicated timestamp")
     df_log_page['eventTimestamp'] = pd.to_datetime(df_log_page['eventTimestamp'])
     df_log_page = find_and_fix_ts_duplicates(df_log_page)
+    # Adds the number of clicks and double clicks for each sessionID
+    df_log_page = add_event_counts(df_log_page, clik_event_list)
+    # Show th final data
     df_show_data(df_log_page)
     print()
 
     # Create and event log at para-level (column "event")
     print(">> Creating event log at para level")
     col_log = ["sessionID", "pageTitle", "menu", "pageOrder", "pagePara", "event", "lastUpdate", "eventPara"]
-    df_log_para = add_eventPara_column(df_events)
+    df_log_para = add_event_para_column(df_events)
     df_log_para = df_retain_columns(df_log_para, col_log)
     # Define a dictionary for renaming columns
     rename_dict = {'event': 'eventPage','lastUpdate': 'eventTimestamp'}
@@ -252,6 +285,9 @@ def main():
     print("> Fix duplicated timestamp")
     df_log_para['eventTimestamp'] = pd.to_datetime(df_log_para['eventTimestamp'])
     df_log_para = find_and_fix_ts_duplicates(df_log_para)
+    # Adds the number of clicks and double clicks for each sessionID
+    df_log_para = add_event_counts(df_log_para, clik_event_list)
+    # Show th final data
     df_show_data(df_log_para)
     print()
 
@@ -294,7 +330,9 @@ def main():
 
     # Final event log with survey end as event
     print(">> Creating final event log with survey responses as event")
-    columns_to_keep = ['sessionID', 'pageTitle', 'menu', 'pageOrder', 'pagePara', 'eventPage','eventTimestamp', 'eventPara', 
+
+    # Final list of columns in the event log
+    columns_to_keep = ['sessionID', 'pageTitle', 'menu', 'pageOrder', 'pagePara', 'eventPage','eventTimestamp', 'eventPara', 'click_num', 'dbclick_num',
                     'QuizSessionCount', 'QuizAnswerCorrectTotal', 'QuizAnswerWrongTotal',  'QuizAnswerCorrectRatio', 
                     'Q_1', 'Q_2', 'Q_3', 'Q_4', 'Q_5', 'Q_6', 'Q_7', 'Q_8', 'Q_9', 'Q_10', 'Q_11', 'Q_12', 'Q_13', 'Q_14', 'Q_15', 
                     'Q_16', 'Q_17', 'Q_18', 'Q_19', 'Q_20', 'Q_21', 'Q_22', 'Q_23', 'Q_24', 'Q_25', 'Q_26', 'Q_27', 'Q_28']
@@ -304,12 +342,22 @@ def main():
 
     df_log_merge_2_para_final = add_survey_end_rows(df_log_merge_2_para, columns_to_keep)
 
+    # Setting integer columns
+    print("> Setting integer columns")
+    # Convert specified columns to integers
+    columns_to_convert = ['click_num', 'dbclick_num','QuizSessionCount','QuizAnswerCorrectTotal','QuizAnswerWrongTotal']
+    # Converting the columns to integers, setting errors='coerce' to handle non-convertible values
+    df_log_merge_2_page_final[columns_to_convert] = df_log_merge_2_page_final[columns_to_convert].apply(pd.to_numeric, errors='coerce').fillna(0).astype(int)
+    df_log_merge_2_para_final[columns_to_convert] = df_log_merge_2_para_final[columns_to_convert].apply(pd.to_numeric, errors='coerce').fillna(0).astype(int)
+    print()
+
     df_show_data(df_log_merge_2_page_final)
     print()
 
     df_show_data(df_log_merge_2_para_final)
     print()
     
+    # Saving
     print("> Saving")
     print()
     path_out = Path(log_dir) / "edu_event_log_PAGE_raw.csv"

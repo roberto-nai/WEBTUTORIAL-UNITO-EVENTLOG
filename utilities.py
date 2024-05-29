@@ -119,7 +119,7 @@ def df_rename_columns(df: pd.DataFrame, rename_dict:dict) -> pd.DataFrame:
         rename_dict = {k: v for k, v in rename_dict.items() if k in df.columns}
 
     # Rename the columns
-    df.rename(columns=rename_dict, inplace=True)
+    df = df.rename(columns=rename_dict)
 
     return df
 
@@ -128,7 +128,7 @@ def df_count_distinct_id(df: pd.DataFrame, keyword:str, key_column:str) -> int:
     """
     Counts distinct sessionIDs in the DataFrame where the pageTitle column contains the specified keyword.
 
-    Args:
+    Parameters:
         df (pd.DataFrame): The DataFrame to be processed.
         keyword (str): The keyword to filter by in the pageTitle column.
         key_column (str): The key column to find distinct values.
