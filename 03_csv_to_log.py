@@ -3,7 +3,7 @@
 ### IMPORT ###
 from pathlib import Path
 import csv
-from datetime import datetime
+from datetime import datetime, time
 import pandas as pd
 
 ### LOCAL IMPORT ###
@@ -19,6 +19,9 @@ stats_dir = str(yaml_config["STATS_DIR"])
 events_file = str(yaml_config["EVENTS_FILE"]) # input
 quiz_stats_file = str(yaml_config["QUIZ_STATS_FILE"]) # input
 survey_file_clean = str(yaml_config["SURVEY_GOOGLE_FILE_CLEAN"]) # input
+sus_file = str(yaml_config["SUS_FILE"]) # input
+case_len_threshold = int(yaml_config["CASE_LEN_THRESHOLD"])
+case_time_threshold = int(yaml_config["CASE_TIME_THRESHOLD"])
 
 # Dictionary of pageTitle ITA to ENU
 dic_en_pageTitle = {'Introduzione':'INTRO', 'Introduzione-Quiz':'INTRO-Q', 'Primo programma':'PROG', 
@@ -34,6 +37,27 @@ dic_en_event = {'ingressoPagina':'PageIN', 'mouseover':'MouseIN', 'mouseout':'Mo
                 'uscitaPagina':'PageOUT', 'click':'CLICK', 'dbclick':'DBCLICK'}
 
 clik_event_list = ['CLICK', 'DBCLICK'] # Frequency events per sessionID
+
+# Criteria "Class" structure
+criteria = [
+    {'date': datetime(2024, 3, 7).date(), 'start_time': time(0, 0), 'end_time': time(23, 59), 'class': 'SAA'},
+    {'date': datetime(2024, 3, 7).date(), 'start_time': time(0, 0), 'end_time': time(23, 59), 'class': 'ECO'},
+    {'date': datetime(2024, 4, 18).date(), 'start_time': time(10, 45), 'end_time': time(12, 59), 'class': 'SMTO1'},
+    {'date': datetime(2024, 4, 18).date(), 'start_time': time(13, 0), 'end_time': time(15, 14), 'class': 'SMTO2'},
+    {'date': datetime(2024, 4, 18).date(), 'start_time': time(15, 15), 'end_time': time(23, 59), 'class': 'SMTO3'},
+    {'date': datetime(2024, 4, 22).date(), 'start_time': time(11, 45), 'end_time': time(13, 59), 'class': 'SMCN1'},
+    {'date': datetime(2024, 4, 22).date(), 'start_time': time(14, 0), 'end_time': time(23, 59), 'class': 'SMCN2'}
+]
+"""
+Data;Ora;Classe
+2024-03-07;SAA
+2024-03-07;ECO
+2024-04-18;dalle 10:45 alle 12.59;SMTO1
+2024-04-18;dalle 13:00 alle 15:14;SMTO2
+2024-04-18;dalle 15:15 in avanti;SMTO3
+2024-04-22;dalle 11:45 alle 13:59;SMCN1
+2024-04-18;dalle 14:00 in avanti;SMCN2
+"""
 
 ### FUNCTIONS ###
 def replace_page_titles(df: pd.DataFrame, mapping_dict: dict) -> pd.DataFrame:
@@ -224,6 +248,55 @@ def add_event_counts(df:pd.DataFrame, event_list:list) -> pd.DataFrame:
     
     return df
 
+def calculate_total_time(df: pd.DataFrame, key_col:str, timestamp_col:str) -> pd.DataFrame:
+    """
+    Calculate the total time elapsed in hours and days for each CaseID.
+
+    Parameters:
+        df (pd.DataFrame): The input dataframe with columns key_col and timestamp_col.
+        key_col (str): Name of the key column (case-id).
+        timestamp_col (str): Name of the timestamp column.
+
+    Returns:
+        pd.DataFrame: A new dataframe with columns key_col, 'TotalTimeHH' (total time in hours) and 'TotalTimeDD'.
+    """
+    # Convert timestamp column to datetime if it's not already
+    df[timestamp_col] = pd.to_datetime(df[timestamp_col])
+    
+    # Calculate the difference between the max and min timestamp for each CaseID
+    df_grouped = df.groupby(key_col).agg({timestamp_col: ['min', 'max'], key_col: 'size'})
+    df_grouped.columns = ['StartTime', 'EndTime', 'CaseLength']
+    df_grouped['TotalTime'] = df_grouped['EndTime'] - df_grouped['StartTime']
+    
+    # Convert total time to hours and days
+    df_grouped['TotalTimeHH'] = (df_grouped['TotalTime'].dt.total_seconds() / 3600).round(2)    # add .astype(int) to have integer data
+    df_grouped['TotalTimeDD'] = (df_grouped['TotalTime'].dt.total_seconds() / 86400).round(2)   # add .astype(int) to have integer data
+    
+    # Create the final dataframe
+    result_df = df_grouped[['TotalTimeHH', 'TotalTimeDD', 'CaseLength']].reset_index()
+    
+    return result_df
+
+def add_class(timestamp: datetime, criteria: list) -> str:
+    """
+    Assign a class based on the timestamp and given criteria.
+
+    Parameters:
+        timestamp (datetime): The datetime of the event.
+        criteria (list): A list of dictionaries containing 'date', 'start_time', 'end_time', and 'class'.
+
+    Returns:
+        str: The assigned class if the timestamp matches any criteria, otherwise None.
+    """
+    date = timestamp.date()
+    time_of_day = timestamp.time()
+    
+    for criterion in criteria:
+        if date == criterion['date']:
+            if criterion['start_time'] <= time_of_day <= criterion['end_time']:
+                return criterion['class']
+    return "NA"
+
 
 ### MAIN ###
 def main():
@@ -317,6 +390,20 @@ def main():
     print(df_survey.head())
     print()
 
+    # Survey
+    print(">> Reading SUS data")
+    path_sus = Path(data_dir) / sus_file
+    print("Path:", str(path_sus))
+    col_list_sus = ["sessionID", "SUS", "Apprendimento percepito", "UEQ - Pragmatic", "UEQ - Hedonic", "UEQ - Overall"]
+    df_sus = df_read_csv_data(path_sus, col_list_sus, ";")
+    col_list_sus.pop(0) # remove "sessionID"
+    for col in col_list_sus:
+        df_sus[col] = df_sus[col].str.replace(',', '.')
+        df_sus[col] = df_sus[col].fillna("0")
+        df_sus[col] = df_sus[col].astype(float).round(3)
+    print(df_sus.head())
+    print()
+
     # Merge
     print(">> Merging PAGE event log with Quiz and Survey")
     print("> Merging page level event log with Quiz and Survey")
@@ -337,6 +424,12 @@ def main():
     print("Number of distinct sessionID with survey (para level):", distinct_session_count_2)
     print()
 
+    # Merge both df with SUS etc
+    print("> Merging PAGE and PARA event log with SUS")
+    df_log_merge_2_page =  pd.merge(df_log_merge_2_page, df_sus, on='sessionID', how='left')
+    df_log_merge_2_para =  pd.merge(df_log_merge_2_para, df_sus, on='sessionID', how='left')
+
+
     # Final event log with survey end as event
     print(">> Creating final event log with survey responses as event")
 
@@ -344,8 +437,9 @@ def main():
     columns_to_keep = ['sessionID', 'pageTitle', 'menu', 'pageOrder', 'pagePara', 'eventPage','eventTimestamp', 'eventPara', 'click_num', 'dbclick_num',
                     'QuizSessionCount', 'QuizAnswerCorrectTotal', 'QuizAnswerWrongTotal',  'QuizAnswerCorrectRatio', 
                     'Q_1', 'Q_2', 'Q_3', 'Q_4', 'Q_5', 'Q_6', 'Q_7', 'Q_8', 'Q_9', 'Q_10', 'Q_11', 'Q_12', 'Q_13', 'Q_14', 'Q_15', 
-                    'Q_16', 'Q_17', 'Q_18', 'Q_19', 'Q_20', 'Q_21', 'Q_22', 'Q_23', 'Q_24', 'Q_25', 'Q_26', 'Q_27', 'Q_28']
-
+                    'Q_16', 'Q_17', 'Q_18', 'Q_19', 'Q_20', 'Q_21', 'Q_22', 'Q_23', 'Q_24', 'Q_25', 'Q_26', 'Q_27', 'Q_28'] + col_list_sus
+    print(f"Columns in the vent log ({len(columns_to_keep)}): ", columns_to_keep)
+    
     df_log_merge_2_page_final = add_survey_end_rows(df_log_merge_2_page, columns_to_keep)
     df_log_merge_2_page_final = df_log_merge_2_page_final.drop('eventPara', axis=1) # the page level has no para level
 
@@ -360,19 +454,65 @@ def main():
     df_log_merge_2_para_final[columns_to_convert] = df_log_merge_2_para_final[columns_to_convert].apply(pd.to_numeric, errors='coerce').fillna(0).astype(int)
     print()
 
+    # Add total time and case length
+    print("> Computing total times")
+    df_log_merge_2_page_total_time = calculate_total_time(df_log_merge_2_page_final, "sessionID", "eventTimestamp")
+    df_log_merge_2_page_total_time = df_log_merge_2_page_total_time.sort_values(by=["TotalTimeHH","TotalTimeDD","CaseLength","sessionID"])
+    
+    df_log_merge_2_para_total_time = calculate_total_time(df_log_merge_2_para_final, "sessionID", "eventTimestamp")
+    df_log_merge_2_para_total_time = df_log_merge_2_para_total_time.sort_values(by=["TotalTimeHH","TotalTimeDD","CaseLength","sessionID"])
+
+    # Saving
+    path_out = Path(stats_dir) / "edu_event_log_PAGE_raw_total_time.csv"
+    print("Saving total times (PAGE) to:", path_out)
+    df_log_merge_2_page_total_time.to_csv(path_out, sep=";", index=False)
+
+    path_out = Path(stats_dir) / "edu_event_log_PARA_raw_total_time.csv"
+    print("Saving total times (PAGE) to:", path_out)
+    df_log_merge_2_para_total_time.to_csv(path_out, sep=";", index=False)
+
+    # Merge final data with total times
+    df_log_merge_2_page_final = pd.merge(df_log_merge_2_page_final, df_log_merge_2_page_total_time, on="sessionID", how="left")
+    df_log_merge_2_para_final = pd.merge(df_log_merge_2_para_final, df_log_merge_2_para_total_time, on="sessionID", how="left")
+
+    df_log_merge_2_page_final = df_log_merge_2_page_final.sort_values(by=["TotalTimeHH","TotalTimeDD","CaseLength","sessionID"])
+    df_log_merge_2_para_final = df_log_merge_2_para_final.sort_values(by=["TotalTimeHH","TotalTimeDD","CaseLength","sessionID"])
+
+    # Adds the class
+    print(">> Adding class")
+    df_log_merge_2_page_final['Class'] = df_log_merge_2_page_final['eventTimestamp'].apply(lambda x: add_class(x, criteria))
+    df_log_merge_2_para_final['Class'] = df_log_merge_2_para_final['eventTimestamp'].apply(lambda x: add_class(x, criteria))
+
+    print("Log at PAGE level")
     df_show_data(df_log_merge_2_page_final)
     print()
 
+    print("Log at PARA level")
     df_show_data(df_log_merge_2_para_final)
     print()
     
     # Saving
-    print("> Saving")
+    print("> Saving raw data")
     path_out = Path(log_dir) / "edu_event_log_PAGE_raw.csv"
     print("Saving final event log to:", path_out)
     df_log_merge_2_page_final.to_csv(path_out, sep=";", index=False)
     
     path_out = Path(log_dir) / "edu_event_log_PARA_raw.csv"
+    print("Saving final event log to:", path_out)
+    df_log_merge_2_para_final.to_csv(path_out, sep=";", index=False)
+    print()
+
+    # Filter
+    # Extract lines where 'CaseLen' > case_len_threshold
+    df_log_merge_2_page_final = df_log_merge_2_page_final[(df_log_merge_2_page_final['CaseLength'] > case_len_threshold) & (df_log_merge_2_page_final['TotalTimeHH'] < case_time_threshold)]
+    df_log_merge_2_para_final = df_log_merge_2_para_final[(df_log_merge_2_para_final['CaseLength'] > case_len_threshold) & (df_log_merge_2_para_final['TotalTimeHH'] < case_time_threshold)]
+
+    print("> Saving filtered data")
+    path_out = Path(log_dir) / "edu_event_log_PAGE_raw_filtered.csv"
+    print("Saving final event log to:", path_out)
+    df_log_merge_2_page_final.to_csv(path_out, sep=";", index=False)
+    
+    path_out = Path(log_dir) / "edu_event_log_PARA_raw_filtered.csv"
     print("Saving final event log to:", path_out)
     df_log_merge_2_para_final.to_csv(path_out, sep=";", index=False)
     print()

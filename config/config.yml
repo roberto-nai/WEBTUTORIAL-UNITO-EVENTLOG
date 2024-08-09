@@ -11,4 +11,7 @@ SURVEY_GOOGLE_FILE_CLEAN: survey_google_clean.csv # cleaned file from Google
 SURVEY_GOOGLE_FILE_CLEAN_MAP: survey_google_clean_map.csv # mapping of Q_i
 SURVEY_GOOGLE_KEY_COLUMN: Form blueprint # the session-id / case-id
 SURVEY_GOOGLE_FILE_STATS: survey_google_stats.csv # stats about SURVEY_GOOGLE_FILE_CLEAN
+SUS_FILE: sus_apprendimento_ueq.csv
 CSV_SEP: ;
+CASE_LEN_THRESHOLD: 5
+CASE_TIME_THRESHOLD: 3
