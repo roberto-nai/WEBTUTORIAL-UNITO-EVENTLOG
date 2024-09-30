@@ -3,6 +3,7 @@
 DATA_DIR: data        # directory with input data (obtained from database)
 LOG_DIR: data_log     # directory with output data (the event log)
 STATS_DIR: stats      # directory with event log statistics
+PLOTS_DIR: plots      # directory with plots
 EVENTS_FILE: events.csv
 QUIZ_FILE: quiz.csv
 QUIZ_STATS_FILE: quiz_stats.csv

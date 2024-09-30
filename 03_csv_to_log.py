@@ -5,6 +5,8 @@ from pathlib import Path
 import csv
 from datetime import datetime, time
 import pandas as pd
+import matplotlib.pyplot as plt
+
 
 ### LOCAL IMPORT ###
 from config import config_reader
@@ -16,6 +18,8 @@ yaml_config = config_reader.config_read_yaml("config.yml", "config")
 data_dir = str(yaml_config["DATA_DIR"])
 log_dir = str(yaml_config["LOG_DIR"])
 stats_dir = str(yaml_config["STATS_DIR"])
+plots_dir = str(yaml_config["PLOTS_DIR"])
+
 events_file = str(yaml_config["EVENTS_FILE"]) # input
 quiz_stats_file = str(yaml_config["QUIZ_STATS_FILE"]) # input
 survey_file_clean = str(yaml_config["SURVEY_GOOGLE_FILE_CLEAN"]) # input
@@ -41,7 +45,7 @@ clik_event_list = ['CLICK', 'DBCLICK'] # Frequency events per sessionID
 # Criteria "Class" structure
 criteria = [
     {'date': datetime(2024, 3, 7).date(), 'start_time': time(0, 0), 'end_time': time(23, 59), 'class': 'SAA'},
-    {'date': datetime(2024, 3, 7).date(), 'start_time': time(0, 0), 'end_time': time(23, 59), 'class': 'ECO'},
+    {'date': datetime(2024, 3, 19).date(), 'start_time': time(0, 0), 'end_time': time(23, 59), 'class': 'ECO'},
     {'date': datetime(2024, 4, 18).date(), 'start_time': time(10, 45), 'end_time': time(12, 59), 'class': 'SMTO1'},
     {'date': datetime(2024, 4, 18).date(), 'start_time': time(13, 0), 'end_time': time(15, 14), 'class': 'SMTO2'},
     {'date': datetime(2024, 4, 18).date(), 'start_time': time(15, 15), 'end_time': time(23, 59), 'class': 'SMTO3'},
@@ -51,12 +55,12 @@ criteria = [
 """
 Data;Ora;Classe
 2024-03-07;SAA
-2024-03-07;ECO
+2024-03-19;ECO
 2024-04-18;dalle 10:45 alle 12.59;SMTO1
 2024-04-18;dalle 13:00 alle 15:14;SMTO2
 2024-04-18;dalle 15:15 in avanti;SMTO3
 2024-04-22;dalle 11:45 alle 13:59;SMCN1
-2024-04-18;dalle 14:00 in avanti;SMCN2
+2024-04-22;dalle 14:00 in avanti;SMCN2
 """
 
 ### FUNCTIONS ###
@@ -277,6 +281,7 @@ def calculate_total_time(df: pd.DataFrame, key_col:str, timestamp_col:str) -> pd
     
     return result_df
 
+# Class functions
 def add_class(timestamp: datetime, criteria: list) -> str:
     """
     Assign a class based on the timestamp and given criteria.
@@ -297,6 +302,88 @@ def add_class(timestamp: datetime, criteria: list) -> str:
                 return criterion['class']
     return "NA"
 
+def plot_distinct_sessionID_per_class(df: pd.DataFrame, class_column: str, session_column: str, output_folder: Path):
+    """
+    Plots a vertical bar chart showing the count of distinct sessionIDs for each class in a DataFrame and saves the chart as an image in the specified folder.
+
+    Parameters:
+    - df: pd.DataFrame
+        The input DataFrame containing the data.
+    - class_column: str
+        The name of the column in the DataFrame that represents the class labels.
+    - session_column: str
+        The name of the column in the DataFrame that contains the session IDs.
+    - output_folder: Path
+        The folder where the chart image will be saved (must already exist).
+
+    Returns:
+    - None
+        Saves the bar chart as an image in the specified folder.
+    """
+
+    # Group by the class column and count distinct session IDs for each class
+    class_counts = df.groupby(class_column)[session_column].nunique()
+
+    # Create the vertical bar chart
+    ax = class_counts.plot(kind='bar')
+
+    # Add labels and title to the chart
+    ax.set_xlabel('Class')
+    ax.set_ylabel('Distinct sessionID Count')
+    ax.set_title('Count of Distinct sessionID per Class')
+    plt.xticks(rotation=0)  # Keep x-axis labels horizontal
+
+    # Define the output file path
+    output_file = Path(output_folder) / 'class_distinct_session_counts.png'
+
+    # Save the chart as an image file
+    plt.savefig(output_file, format='png')
+
+    print(f"Chart saved successfully at: {output_file}")
+
+    # Clear the figure to prevent overlapping in future plots
+    plt.clf()
+
+def save_distinct_sessionID_per_class(df: pd.DataFrame, class_column: str, session_column: str, output_folder: Path):
+    """
+    Saves a CSV file containing the count of distinct sessionIDs for each class in the DataFrame, along with the percentage of each class relative to the total number of distinct sessionIDs.
+
+    Parameters:
+    - df: pd.DataFrame
+        The input DataFrame containing the data.
+    - class_column: str
+        The name of the column in the DataFrame that represents the class labels.
+    - session_column: str
+        The name of the column in the DataFrame that contains the session IDs.
+    - output_folder: Path
+        The folder where the CSV file will be saved.
+
+    Returns:
+    - None
+        Saves the resulting class counts and percentages as a CSV file in the specified folder.
+    """
+
+    # Group by the class column and count distinct session IDs for each class
+    class_counts = df.groupby(class_column)[session_column].nunique().reset_index()
+
+    # Rename columns for clarity in the CSV
+    class_counts.columns = ['Class', 'Qty']
+
+    # Calculate the total number of distinct sessionIDs
+    total_qty = class_counts['Qty'].sum()
+
+    # Calculate the percentage for each class
+    class_counts['Perc'] = round((class_counts['Qty'] / total_qty),2) * 100
+
+    class_counts = class_counts.sort_values(by='Qty', ascending=False)
+
+    # Create the file path for saving the CSV
+    output_file = Path(output_folder) / 'class_distinct_session_counts.csv'
+
+    # Save the DataFrame to a CSV file
+    class_counts.to_csv(output_file, index=False, sep=";")
+
+    print(f"CSV file saved successfully at: {output_file}")
 
 ### MAIN ###
 def main():
@@ -482,6 +569,8 @@ def main():
     print(">> Adding class")
     df_log_merge_2_page_final['Class'] = df_log_merge_2_page_final['eventTimestamp'].apply(lambda x: add_class(x, criteria))
     df_log_merge_2_para_final['Class'] = df_log_merge_2_para_final['eventTimestamp'].apply(lambda x: add_class(x, criteria))
+    plot_distinct_sessionID_per_class(df_log_merge_2_page_final, "Class", "sessionID", plots_dir)
+    save_distinct_sessionID_per_class(df_log_merge_2_page_final, "Class", "sessionID", stats_dir)
 
     print("Log at PAGE level")
     df_show_data(df_log_merge_2_page_final)
