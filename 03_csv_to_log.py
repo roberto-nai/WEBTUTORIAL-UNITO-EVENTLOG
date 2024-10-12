@@ -2,7 +2,6 @@
 
 ### IMPORT ###
 from pathlib import Path
-import csv
 from datetime import datetime, time
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -360,7 +359,7 @@ def save_distinct_sessionID_per_class(df: pd.DataFrame, class_column: str, sessi
 
     Returns:
     - None
-        Saves the resulting class counts and percentages as a CSV file in the specified folder.
+        Saves the resulting class counts and percentages as a CSV and XLSX file in the specified folder.
     """
 
     # Group by the class column and count distinct session IDs for each class
@@ -382,8 +381,59 @@ def save_distinct_sessionID_per_class(df: pd.DataFrame, class_column: str, sessi
 
     # Save the DataFrame to a CSV file
     class_counts.to_csv(output_file, index=False, sep=";")
-
     print(f"CSV file saved successfully at: {output_file}")
+    print()
+
+    output_file = Path(output_folder) / 'class_distinct_session_counts.xlsx'
+    class_counts.to_excel(output_file, index=False, sheet_name="class_distinct_session_counts")
+    print(f"XLSX file saved successfully at: {output_file}")
+    print()
+    
+def save_distinct_eventTimestamps_for_na_class(df: pd.DataFrame, timestamp_column: str, class_column: str, output_folder: Path):
+    """
+    Saves a CSV file containing the distinct values of eventTimestamps for rows where the Class is 'NA',
+    sorted from the oldest to the most recent timestamp.
+
+    Parameters:
+    - df: pd.DataFrame
+        The input DataFrame containing the data.
+    - timestamp_column: str
+        The name of the column in the DataFrame that contains the event timestamps.
+    - class_column: str
+        The name of the column in the DataFrame that represents the class labels.
+    - output_folder: Path
+        The folder where the CSV file will be saved (must already exist).
+
+    Returns:
+    - None
+        Saves the resulting distinct eventTimestamps as a CSV file in the specified folder.
+    """
+
+    # Filter the DataFrame for rows where Class is 'NA'
+    na_class_df = df[df[class_column] == 'NA']
+
+    # Extract distinct values of eventTimestamp and sort them
+    distinct_timestamps = na_class_df[timestamp_column].drop_duplicates().sort_values()
+
+    # Convert to DataFrame for saving
+    distinct_timestamps_df = pd.DataFrame(distinct_timestamps, columns=[timestamp_column]).reset_index(drop=True)
+    distinct_timestamps_df['eventDate'] = pd.to_datetime(distinct_timestamps_df[timestamp_column]).dt.date
+
+    # Define the output file path
+    output_file = Path(output_folder) / 'distinct_event_timestamps_na_class.csv'
+    # Save the DataFrame to a CSV file
+    distinct_timestamps_df.to_csv(output_file, index=True)
+    print(f"CSV file saved successfully at: {output_file}")
+
+    # Save the DataFrame to a CSV file
+    output_file = Path(output_folder) / 'distinct_event_timestamps_na_class.xlsx'
+    distinct_timestamps_df.to_excel(output_file, index=True, sheet_name="event_timestamps_na_class")
+    print(f"XLSX file saved successfully at: {output_file}")
+
+    # list_event_date = distinct_timestamps_df['eventDate'].to_list()
+    # print(list_event_date)
+    
+    print()
 
 ### MAIN ###
 def main():
@@ -566,11 +616,13 @@ def main():
     df_log_merge_2_para_final = df_log_merge_2_para_final.sort_values(by=["TotalTimeHH","TotalTimeDD","CaseLength","sessionID"])
 
     # Adds the class
-    print(">> Adding class")
+    print(">> Adding classes")
     df_log_merge_2_page_final['Class'] = df_log_merge_2_page_final['eventTimestamp'].apply(lambda x: add_class(x, criteria))
     df_log_merge_2_para_final['Class'] = df_log_merge_2_para_final['eventTimestamp'].apply(lambda x: add_class(x, criteria))
+    print(">> Stats about classes")
     plot_distinct_sessionID_per_class(df_log_merge_2_page_final, "Class", "sessionID", plots_dir)
     save_distinct_sessionID_per_class(df_log_merge_2_page_final, "Class", "sessionID", stats_dir)
+    save_distinct_eventTimestamps_for_na_class(df_log_merge_2_page_final, "eventTimestamp", "Class", stats_dir)
 
     print("Log at PAGE level")
     df_show_data(df_log_merge_2_page_final)
