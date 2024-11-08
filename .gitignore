@@ -159,15 +159,17 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-# My Project Directories
+# My Project Directories to be ignored
 _old/
 _todo/
 **/.DS_Store
 
-# Ignore every file the directory
+# Ignore every file in the directory
+data_log/*
+plots/*
+stats/*
 
 # But do not ignore the directory itself
-
-# Env
-.env
-
+!data_log/.gitkeep
+!plots/.gitkeep
+!stats/.gitkeep

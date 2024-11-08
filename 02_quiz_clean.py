@@ -40,7 +40,8 @@ def quiz_correct_ratio(df: pd.DataFrame, key_column:str) -> pd.DataFrame:
     grouped_df['QuizAnswerCorrectTotal'] = grouped_df['QuizAnswerCorrectTotal'].astype(int)
     grouped_df['QuizAnswerWrongTotal'] = grouped_df['QuizAnswerWrongTotal'].astype(int)
 
-    grouped_df['QuizAnswerCorrectRatio'] = (grouped_df['QuizAnswerCorrectTotal'] / grouped_df['QuizSessionCount']).round(2)
+    grouped_df['QuizAnswerCorrectRatioOverCount'] = (grouped_df['QuizAnswerCorrectTotal'] / grouped_df['QuizSessionCount']).round(2)
+    grouped_df['QuizAnswerCorrectRatioOverAll'] = (grouped_df['QuizAnswerCorrectTotal'] / 10).round(2)
     
     return grouped_df
 
@@ -56,7 +57,7 @@ def extract_quiz_summary(df: pd.DataFrame, key_column: str) -> pd.DataFrame:
         pd.DataFrame: A dataframe with the quiz summary for each distinct sessionID.
     """
     # Select the relevant columns
-    summary_columns = [key_column, 'QuizSessionCount', 'QuizAnswerCorrectTotal', 'QuizAnswerCorrectRatio']
+    summary_columns = [key_column, 'QuizSessionCount', 'QuizAnswerCorrectTotal', 'QuizAnswerCorrectRatioOverCount', 'QuizAnswerCorrectRatioOverAll']
     
     # Drop duplicates to get distinct sessionID summaries
     summary_df = df[summary_columns].drop_duplicates()
@@ -107,7 +108,6 @@ def main():
     print()
     print("*** PROGRAM END ***")
     print()
-
 
 if __name__ == "__main__":
     main()

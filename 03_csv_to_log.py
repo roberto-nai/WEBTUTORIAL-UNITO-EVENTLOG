@@ -514,7 +514,7 @@ def main():
     print(">> Reading Quiz data")
     path_quiz = Path(stats_dir) / quiz_stats_file
     print("Path:", str(path_quiz))
-    col_list = ["sessionID","QuizSessionCount", "QuizAnswerCorrectTotal", "QuizAnswerWrongTotal", "QuizAnswerCorrectRatio"]
+    col_list = ["sessionID", "QuizSessionCount", "QuizAnswerCorrectTotal", "QuizAnswerWrongTotal", "QuizAnswerCorrectRatioOverCount", "QuizAnswerCorrectRatioOverAll"]
     df_quiz = df_read_csv_data(path_quiz, col_list, ";")
     print(df_quiz.head())
     print()
@@ -572,7 +572,7 @@ def main():
 
     # Final list of columns in the event log
     columns_to_keep = ['sessionID', 'pageTitle', 'menu', 'pageOrder', 'pagePara', 'eventPage','eventTimestamp', 'eventPara', 'click_num', 'dbclick_num',
-                    'QuizSessionCount', 'QuizAnswerCorrectTotal', 'QuizAnswerWrongTotal',  'QuizAnswerCorrectRatio', 
+                    'QuizSessionCount', 'QuizAnswerCorrectTotal', 'QuizAnswerWrongTotal',  'QuizAnswerCorrectRatioOverCount', 'QuizAnswerCorrectRatioOverAll',
                     'Q_1', 'Q_2', 'Q_3', 'Q_4', 'Q_5', 'Q_6', 'Q_7', 'Q_8', 'Q_9', 'Q_10', 'Q_11', 'Q_12', 'Q_13', 'Q_14', 'Q_15', 
                     'Q_16', 'Q_17', 'Q_18', 'Q_19', 'Q_20', 'Q_21', 'Q_22', 'Q_23', 'Q_24', 'Q_25', 'Q_26', 'Q_27', 'Q_28'] + col_list_sus
     print(f"Columns in the vent log ({len(columns_to_keep)}): ", columns_to_keep)
@@ -623,6 +623,22 @@ def main():
     plot_distinct_sessionID_per_class(df_log_merge_2_page_final, "Class", "sessionID", plots_dir)
     save_distinct_sessionID_per_class(df_log_merge_2_page_final, "Class", "sessionID", stats_dir)
     save_distinct_eventTimestamps_for_na_class(df_log_merge_2_page_final, "eventTimestamp", "Class", stats_dir)
+
+    # Adds the class to quiz stats
+    print(">> Updating Quiz ratio totals with Class")
+    df_quiz = df_quiz.merge(df_log_merge_2_page_final[['sessionID', 'Class']], on='sessionID', how='left')
+    df_quiz = df_quiz.drop_duplicates()
+    print(df_quiz.head(5))
+    print()
+    path_out = Path(stats_dir) / quiz_stats_file
+    # CSV
+    print("Path (CSV):", path_out)
+    df_quiz.to_csv(path_out, sep=";", index=False)
+    # XLS
+    path_out = Path(stats_dir) / f"{Path(quiz_stats_file).stem}.xlsx"
+    print("Path (XLSX):", path_out)
+    df_quiz.to_excel(path_out, sheet_name=f"{Path(quiz_stats_file).stem}", index=False)
+    print()
 
     print("Log at PAGE level")
     df_show_data(df_log_merge_2_page_final)
