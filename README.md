@@ -14,6 +14,7 @@ Starting from the raw quiz data (```QUIZ_FILE```), it extracts quiz statistics f
 ```03_csv_to_log.py```  
 Starting from the raw events data (```EVENTS_FILE```), it extracts the events for an event log, adding also the quiz and survey data obtained from the previously executed scripts. Saves the event log at page (file with ```_PAGE_```) and paragraph level (file with ```_PARA_```).   
 
+
 ### > Script Dependencies
 See ```requirements.txt``` for the required libraries (```pip install -r requirements.txt```).  
 
