@@ -123,7 +123,6 @@ def df_rename_columns(df: pd.DataFrame, rename_dict:dict) -> pd.DataFrame:
 
     return df
 
-
 def df_count_distinct_id(df: pd.DataFrame, keyword:str, key_column:str) -> int:
     """
     Counts distinct sessionIDs in the DataFrame where the pageTitle column contains the specified keyword.
@@ -145,7 +144,6 @@ def df_count_distinct_id(df: pd.DataFrame, keyword:str, key_column:str) -> int:
     distinct_session_count = unique_sessions.count()
 
     return distinct_session_count
-
 
 def df_remove_rows_with_substring(df:pd.DataFrame, substrings_to_remove:list, columns_to_check:list):
     """

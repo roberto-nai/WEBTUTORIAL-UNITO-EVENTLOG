@@ -25,6 +25,13 @@ survey_file_clean = str(yaml_config["SURVEY_GOOGLE_FILE_CLEAN"]) # input
 sus_file = str(yaml_config["SUS_FILE"]) # input
 case_len_threshold = int(yaml_config["CASE_LEN_THRESHOLD"])
 case_time_threshold = int(yaml_config["CASE_TIME_THRESHOLD"])
+disco_cases = str(yaml_config["DISCO_CASES_FILE"]) # input
+id_column = "Case ID" # Final trace identifier
+activity_column = "Activity"
+timestamp_column = "Complete Timestamp"
+
+# Filter data based on list of cases already filtered in DISCO
+filter_disco_cases = 1 # 1 = yes, 0 = no
 
 # Dictionary of pageTitle ITA to ENU
 dic_en_pageTitle = {'Introduzione':'INTRO', 'Introduzione-Quiz':'INTRO-Q', 'Primo programma':'PROG', 
@@ -207,30 +214,6 @@ def add_survey_end_rows(df: pd.DataFrame, columns_to_keep: list) -> pd.DataFrame
 
     return df_combined
 
-def extract_distinct_menu_per_session(df: pd.DataFrame, key_column: str, menu_column: str) -> pd.DataFrame:
-    """
-    Extracts the distinct values of the menu column for each distinct sessionID from a dataframe.
-
-    Parameters:
-        df (pd.DataFrame): The dataframe containing the data.
-        key_column (str): The column name to group by (typically sessionID).
-        menu_column (str): The column name from which to extract distinct values (typically menu).
-
-    Returns:
-        pd.DataFrame: A dataframe with each sessionID and the distinct values of the menu column.
-    """
-
-    # Group by the key column and aggregate distinct menu values
-    grouped_df = df.groupby(key_column)[menu_column].apply(lambda x: list(x.unique())).reset_index()
-    
-    # Rename the columns for clarity
-    grouped_df.columns = [key_column, 'DistinctMenuValues']
-
-    # Sort
-    grouped_df = grouped_df.sort_values(by = "DistinctMenuValues")
-    
-    return grouped_df
-
 def add_event_counts(df:pd.DataFrame, event_list:list) -> pd.DataFrame:
     """
     Adds columns to the dataframe for the count of specified events.
@@ -273,10 +256,11 @@ def calculate_total_time(df: pd.DataFrame, key_col:str, timestamp_col:str) -> pd
     
     # Convert total time to hours and days
     df_grouped['TotalTimeHH'] = (df_grouped['TotalTime'].dt.total_seconds() / 3600).round(2)    # add .astype(int) to have integer data
+    df_grouped['TotalTimeMM'] = (df_grouped['TotalTime'].dt.total_seconds() / 60).round(2)      # add .astype(int) to have integer data
     df_grouped['TotalTimeDD'] = (df_grouped['TotalTime'].dt.total_seconds() / 86400).round(2)   # add .astype(int) to have integer data
     
     # Create the final dataframe
-    result_df = df_grouped[['TotalTimeHH', 'TotalTimeDD', 'CaseLength']].reset_index()
+    result_df = df_grouped[['TotalTimeHH', 'TotalTimeMM', 'TotalTimeDD', 'CaseLength']].reset_index()
     
     return result_df
 
@@ -435,6 +419,48 @@ def save_distinct_eventTimestamps_for_na_class(df: pd.DataFrame, timestamp_colum
     
     print()
 
+# Tercile functions
+def label_terciles_by_session(df: pd.DataFrame, session_column: str, value_column: str):
+    """
+    Label rows in terciles based on the value_column, considering all rows with the same session_column value as belonging to the same tercile, and add the 'Tercile' column to the original DataFrame.
+    
+    Parameters:
+    df (pd.DataFrame): The input DataFrame containing the data.
+    session_column (str): The column representing session IDs (grouping key).
+    value_column (str): The column containing the values to be split into terciles.
+    
+    Returns:
+    pd.DataFrame: The original DataFrame with an additional column 'Tercile' indicating the tercile label.
+    string: Name of the new tercile column
+    """
+
+    # Define the tercile column name
+    col_tercile = f"{value_column}_Tercile"
+
+    # First, remove duplicates based on session_column and value_column, because same session has same SUS
+    df_unique = df.drop_duplicates(subset=[session_column, value_column])
+    
+    # Filter out rows where the value_column is NaN
+    df_unique_non_nan = df_unique[df_unique[value_column].notna()]
+    
+    # Calculate terciles based on the unique non-NaN values
+    df_unique_non_nan[col_tercile] = pd.qcut(df_unique_non_nan[value_column], q=3, labels=[1, 2, 3], duplicates='drop')
+    
+    # Merge the tercile labels back into the original dataframe
+    df = df.merge(df_unique_non_nan[[session_column, col_tercile]], on=session_column, how='left')
+
+    # Count the number of empty cells in the specified column
+    num_empty = df[col_tercile].isna().sum()
+    print(f"Number of empty cells in '{col_tercile}':", num_empty)
+
+    # Add 0 as a category to allow setting empty cells to 0
+    df[col_tercile] = df[col_tercile].cat.add_categories([0])
+
+    # Replace empty values with 0 in the specified column
+    df[col_tercile].fillna(0, inplace=True)
+
+    return df, col_tercile
+
 ### MAIN ###
 def main():
     print()
@@ -445,7 +471,22 @@ def main():
     print("Start process:", str(start_time))
     print()
 
-    # Events
+    ### Events from DISCO ###
+    df_disco = pd.DataFrame()
+    df_disco_list = []
+    path_disco_cases = Path(data_dir) / disco_cases
+    if path_disco_cases.exists():
+        print("Reading DISCO cases")
+        df_disco = pd.read_csv(path_disco_cases)
+        print("Cases in DISCO filter:", df_disco["Case ID"].nunique())
+    else:
+        print("Cases in DISCO filter: 0")
+    print()
+
+    df_disco_list = df_disco["Case ID"].unique().tolist()
+    # print(df_disco_list) # debug
+
+    ### Events from tutorial ###
     print(">> Reading Events data")
     path_events = Path(data_dir) / events_file
     print("Path:", str(path_events))
@@ -462,11 +503,11 @@ def main():
     for key in dic_en_event:
         df_events['event'] = df_events['event'].replace([key], dic_en_event[key])
 
-    # Create a list of distinct values to check the data (and print it)
+    ### Create a list of distinct values to check the data (and print it) ###
     df_events_unique = df_get_unique_values(df_events, col_list_unique)
     dict_with_formatting(df_events_unique) 
 
-    # Create and event log at page-level (column "event", value "PageIN")
+    ### Create and event log at page-level (column "event", value "PageIN") ###
     print(">> Creating event log at page level")
     col_log = ["sessionID", "pageTitle", "menu", "pageOrder", "pagePara", "event", "lastUpdate"]
     # Specific for PAGE level
@@ -489,7 +530,7 @@ def main():
     df_show_data(df_log_page)
     print()
 
-    # Create and event log at para-level (column "event")
+    ### Create and event log at para-level (column "event") ###
     print(">> Creating event log at para level")
     col_log = ["sessionID", "pageTitle", "menu", "pageOrder", "pagePara", "event", "lastUpdate", "eventPara"]
     # Specific for PARA level
@@ -510,7 +551,7 @@ def main():
     df_show_data(df_log_para)
     print()
 
-    # Quiz
+    ### Quiz ###
     print(">> Reading Quiz data")
     path_quiz = Path(stats_dir) / quiz_stats_file
     print("Path:", str(path_quiz))
@@ -519,7 +560,7 @@ def main():
     print(df_quiz.head())
     print()
 
-    # Survey
+    #### Survey ###
     print(">> Reading Survey data")
     path_survey = Path(data_dir) / survey_file_clean
     print("Path:", str(path_survey))
@@ -541,7 +582,7 @@ def main():
     print(df_sus.head())
     print()
 
-    # Merge
+    ### Merge with Quiz and Survey###
     print(">> Merging PAGE event log with Quiz and Survey")
     print("> Merging page level event log with Quiz and Survey")
     df_log_merge_1_page =  pd.merge(df_log_page, df_quiz, on='sessionID', how='left')
@@ -561,13 +602,13 @@ def main():
     print("Number of distinct sessionID with survey (para level):", distinct_session_count_2)
     print()
 
-    # Merge both df with SUS etc
+    ### Merge both df with SUS etc ###
     print("> Merging PAGE and PARA event log with SUS")
     df_log_merge_2_page =  pd.merge(df_log_merge_2_page, df_sus, on='sessionID', how='left')
     df_log_merge_2_para =  pd.merge(df_log_merge_2_para, df_sus, on='sessionID', how='left')
 
 
-    # Final event log with survey end as event
+    ### Final event log with survey end as event ###
     print(">> Creating final event log with survey responses as event")
 
     # Final list of columns in the event log
@@ -594,10 +635,10 @@ def main():
     # Add total time and case length
     print("> Computing total times")
     df_log_merge_2_page_total_time = calculate_total_time(df_log_merge_2_page_final, "sessionID", "eventTimestamp")
-    df_log_merge_2_page_total_time = df_log_merge_2_page_total_time.sort_values(by=["TotalTimeHH","TotalTimeDD","CaseLength","sessionID"])
+    df_log_merge_2_page_total_time = df_log_merge_2_page_total_time.sort_values(by=["TotalTimeHH", "TotalTimeMM", "TotalTimeDD","CaseLength","sessionID"])
     
     df_log_merge_2_para_total_time = calculate_total_time(df_log_merge_2_para_final, "sessionID", "eventTimestamp")
-    df_log_merge_2_para_total_time = df_log_merge_2_para_total_time.sort_values(by=["TotalTimeHH","TotalTimeDD","CaseLength","sessionID"])
+    df_log_merge_2_para_total_time = df_log_merge_2_para_total_time.sort_values(by=["TotalTimeHH", "TotalTimeMM", "TotalTimeDD","CaseLength","sessionID"])
 
     # Saving
     path_out = Path(stats_dir) / "edu_event_log_PAGE_raw_total_time.csv"
@@ -608,12 +649,12 @@ def main():
     print("Saving total times (PAGE) to:", path_out)
     df_log_merge_2_para_total_time.to_csv(path_out, sep=";", index=False)
 
-    # Merge final data with total times
+    # Merge final data with total times for stats
     df_log_merge_2_page_final = pd.merge(df_log_merge_2_page_final, df_log_merge_2_page_total_time, on="sessionID", how="left")
     df_log_merge_2_para_final = pd.merge(df_log_merge_2_para_final, df_log_merge_2_para_total_time, on="sessionID", how="left")
 
-    df_log_merge_2_page_final = df_log_merge_2_page_final.sort_values(by=["TotalTimeHH","TotalTimeDD","CaseLength","sessionID"])
-    df_log_merge_2_para_final = df_log_merge_2_para_final.sort_values(by=["TotalTimeHH","TotalTimeDD","CaseLength","sessionID"])
+    df_log_merge_2_page_final = df_log_merge_2_page_final.sort_values(by=["TotalTimeHH", "TotalTimeMM", "TotalTimeDD", "CaseLength","sessionID"])
+    df_log_merge_2_para_final = df_log_merge_2_para_final.sort_values(by=["TotalTimeHH", "TotalTimeMM", "TotalTimeDD", "CaseLength","sessionID"])
 
     # Adds the class
     print(">> Adding classes")
@@ -640,6 +681,9 @@ def main():
     df_quiz.to_excel(path_out, sheet_name=f"{Path(quiz_stats_file).stem}", index=False)
     print()
 
+    df_log_merge_2_page_final = df_log_merge_2_page_final.drop_duplicates()
+    df_log_merge_2_para_final = df_log_merge_2_para_final.drop_duplicates()
+
     print("Log at PAGE level")
     df_show_data(df_log_merge_2_page_final)
     print()
@@ -647,43 +691,76 @@ def main():
     print("Log at PARA level")
     df_show_data(df_log_merge_2_para_final)
     print()
+
+    ### Renaming "sessionID" as "Case ID" ###
+    df_log_merge_2_page_final.rename(columns={"sessionID": id_column}, inplace=True)
+    df_log_merge_2_para_final.rename(columns={"sessionID": id_column}, inplace=True)
     
-    # Saving
+    ### Renaming "eventTimestamp" as "Complete Timestamp" ###
+    df_log_merge_2_page_final.rename(columns={"eventTimestamp": timestamp_column}, inplace=True)
+    df_log_merge_2_para_final.rename(columns={"eventTimestamp": timestamp_column}, inplace=True)
+
+    ### Add activity column based on dataframe ###
+    # pageTitle -> Activity
+    df_log_merge_2_page_final.insert(1, activity_column, df_log_merge_2_page_final["pageTitle"])
+    column = df_log_merge_2_page_final.pop(activity_column)
+    df_log_merge_2_page_final.insert(2, activity_column, column)
+    # eventPara -> Activity
+    df_log_merge_2_para_final.insert(1, activity_column, df_log_merge_2_para_final["eventPara"])
+    column = df_log_merge_2_para_final.pop(activity_column)
+    df_log_merge_2_para_final.insert(2, activity_column, column)
+
+    ### Ordering ###
+    df_log_merge_2_page_final.sort_values(by=[id_column, timestamp_column], ascending=[True, True], inplace=True)
+    df_log_merge_2_para_final.sort_values(by=[id_column, timestamp_column], ascending=[True, True], inplace=True)
+
+    ### Adding Terciles ###
+    print(">> Adding Terciles")
+    list_col_t = ["SUS", "Apprendimento percepito", "UEQ - Overall", "QuizAnswerCorrectRatioOverAll"] # Columns on which to calculate the tertile
+    print("Columns on which to calculate the tercile:", list_col_t)
+    for col_name in list_col_t:
+        print("Tercile on column:", col_name)
+        df_log_merge_2_page_final, col_tercile = label_terciles_by_session(df_log_merge_2_page_final, session_column=id_column, value_column=col_name)
+        df_log_merge_2_para_final, col_tercile = label_terciles_by_session(df_log_merge_2_para_final, session_column=id_column, value_column=col_name)
+        print("New tercile column:", col_tercile)
+        # print("Event log shape:", df_log.shape)
+        print("Event log new tercile (PAGE):", df_log_merge_2_page_final[col_tercile].unique())
+        print("Event log new tercile (PARA):", df_log_merge_2_para_final[col_tercile].unique())
+        print()
+
+    ### Saving ###
     print("> Saving raw data")
-    path_out = Path(log_dir) / "edu_event_log_PAGE_raw.csv"
+    path_out = Path(log_dir) / "edu_event_log_PAGE_raw_ter.csv"
     print("Saving final event log to:", path_out)
     df_log_merge_2_page_final.to_csv(path_out, sep=";", index=False)
     
-    path_out = Path(log_dir) / "edu_event_log_PARA_raw.csv"
+    path_out = Path(log_dir) / "edu_event_log_PARA_raw_ter.csv"
     print("Saving final event log to:", path_out)
     df_log_merge_2_para_final.to_csv(path_out, sep=";", index=False)
     print()
 
-    # Filter
+    ### Filter based on DISCO ###
+    if filter_disco_cases == 1:
+        print("> Filtering Cases already chosen in DISCO")
+        df_log_merge_2_para_final = df_log_merge_2_para_final[df_log_merge_2_para_final[id_column].isin(df_disco_list)]
+        print("Cases after DISCO filter (para):", df_log_merge_2_para_final[id_column].nunique())
+        df_log_merge_2_page_final = df_log_merge_2_page_final[df_log_merge_2_page_final[id_column].isin(df_disco_list)]
+        print("Cases after DISCO filter (page):", df_log_merge_2_page_final[id_column].nunique())
+        print()
+
+        print("> Saving filtered data")
+        path_out = Path(log_dir) / "edu_event_log_PAGE_raw_filtered_DISCO_ter.csv"
+        print("Saving final event log to:", path_out)
+        df_log_merge_2_page_final.to_csv(path_out, sep=";", index=False)
+        
+        path_out = Path(log_dir) / "edu_event_log_PARA_raw_filtered_DISCO_ter.csv"
+        print("Saving final event log to:", path_out)
+        df_log_merge_2_para_final.to_csv(path_out, sep=";", index=False)
+        print()
+
     # Extract lines where 'CaseLen' > case_len_threshold
-    df_log_merge_2_page_final = df_log_merge_2_page_final[(df_log_merge_2_page_final['CaseLength'] > case_len_threshold) & (df_log_merge_2_page_final['TotalTimeHH'] < case_time_threshold)]
-    df_log_merge_2_para_final = df_log_merge_2_para_final[(df_log_merge_2_para_final['CaseLength'] > case_len_threshold) & (df_log_merge_2_para_final['TotalTimeHH'] < case_time_threshold)]
-
-    print("> Saving filtered data")
-    path_out = Path(log_dir) / "edu_event_log_PAGE_raw_filtered.csv"
-    print("Saving final event log to:", path_out)
-    df_log_merge_2_page_final.to_csv(path_out, sep=";", index=False)
-    
-    path_out = Path(log_dir) / "edu_event_log_PARA_raw_filtered.csv"
-    print("Saving final event log to:", path_out)
-    df_log_merge_2_para_final.to_csv(path_out, sep=";", index=False)
-    print()
-
-    # Stats
-    print(">> Getting path menu by sessionID")
-    df_menu = extract_distinct_menu_per_session(df_log_merge_2_page_final, "sessionID", "menu")
-    path_out = Path(stats_dir) / "menu_stats.csv"
-    print("Saving menu stats (CSV):", path_out)
-    df_menu.to_csv(path_out, sep=";", index=False)
-    path_out = Path(stats_dir) / "menu_stats.xlsx"
-    print("Saving menu stats (XLSX):", path_out)
-    df_menu.to_excel(path_out, sheet_name="menu_stats", index=False)
-    print()
+    # df_log_merge_2_page_final = df_log_merge_2_page_final[(df_log_merge_2_page_final['CaseLength'] > case_len_threshold) & (df_log_merge_2_page_final['TotalTimeHH'] < case_time_threshold)]
+    # df_log_merge_2_para_final = df_log_merge_2_para_final[(df_log_merge_2_para_final['CaseLength'] > case_len_threshold) & (df_log_merge_2_para_final['TotalTimeHH'] < case_time_threshold)]
 
     # program END
     end_time = datetime.now().replace(microsecond=0)

@@ -66,13 +66,22 @@ def survey_read_and_rename_columns(df:pd.DataFrame, key_col:str) -> pd.DataFrame
     column_order = ['sessionID'] + [col for col in df.columns if col != 'sessionID']
     df = df[column_order]
 
-    # Convert 'eventTimestamp' from 'YYYY/MM/DD HH:MM:SS AM/PM TZ' to 'YYYY-MM-DD HH:MM:SS'
+    # Convert 'eventTimestamp' from 'YYYY/MM/DD HH:MM:SS AM/PM EET' to 'YYYY-MM-DD HH:MM:SS'
     # Remove the timezone information from 'SurveyTimestamp' and convert it
-    df['SurveyTimestamp'] = df['SurveyTimestamp'].str.replace(' EET', '', regex=False)
-    df['SurveyTimestamp'] = pd.to_datetime(df['SurveyTimestamp'], format='%Y/%m/%d %I:%M:%S %p')
-    df['SurveyTimestamp'] = df['SurveyTimestamp'].dt.tz_localize('Europe/Helsinki').dt.strftime('%Y-%m-%d %H:%M:%S')
-
     
+    # Remove the "EET" suffix from the string as it is not compatible with the datetime format
+    df['SurveyTimestamp'] = df['SurveyTimestamp'].str.replace(' EET', '', regex=False)
+
+    # Convert the string to datetime format, specifying the original timezone as "Europe/Helsinki"
+    df['SurveyTimestamp'] = pd.to_datetime(df['SurveyTimestamp'], format='%Y/%m/%d %I:%M:%S %p')
+    df['SurveyTimestamp'] = df['SurveyTimestamp'].dt.tz_localize('Europe/Helsinki')
+
+    # Convert the timestamp to the Italian timezone "Europe/Rome" (handles daylight saving time automatically)
+    df['SurveyTimestamp'] = df['SurveyTimestamp'].dt.tz_convert('Europe/Rome')
+
+    # Convert the timestamp back to a string in the desired format
+    df['SurveyTimestamp'] = df['SurveyTimestamp'].dt.strftime('%Y-%m-%d %H:%M:%S')
+
     # Converts all float columns to int inserting -1 for missing values
     for col in df.select_dtypes(include=['float64']).columns:
         df[col] = df[col].fillna(-1).astype(int)
@@ -113,7 +122,6 @@ def get_unique_values(df:pd.DataFrame, prefix:str="Q_", start:int=1, end:int=28)
             unique_values[col_name] = sorted(df[col_name].dropna().unique())
 
     return unique_values
-
 
 def calculate_question_statistics(df: pd.DataFrame, question_texts_df: pd.DataFrame, question_prefix: str) -> pd.DataFrame:
     """

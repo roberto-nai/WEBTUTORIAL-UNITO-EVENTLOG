@@ -13,6 +13,10 @@ Starting from the raw survey data (```SURVEY_GOOGLE_FILE```), it cleans the colu
 Starting from the raw quiz data (```QUIZ_FILE```), it extracts quiz statistics for each sessionID (total quizzes, correct, incorrect, percentage of correct). Save statistics in ```QUIZ_STATS_FILE```.    
 ```03_csv_to_log.py```  
 Starting from the raw events data (```EVENTS_FILE```), it extracts the events for an event log, adding also the quiz and survey data obtained from the previously executed scripts. Saves the event log at page (file with ```_PAGE_```) and paragraph level (file with ```_PARA_```).   
+```04_log_enrichment.ipynb```  
+Enriches the event log created in the previous step.  
+```05_log_correlations.ipynb```  
+It performs the Shapiro-Wilk test on the features of interest, then performs Pearson's correlation (for normal distributions) or Spearman's correlation (for non-normal distributions).  
 
 
 ### > Script Dependencies

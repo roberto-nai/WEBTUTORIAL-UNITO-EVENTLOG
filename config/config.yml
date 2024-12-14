@@ -7,12 +7,13 @@ PLOTS_DIR: plots      # directory with plots
 EVENTS_FILE: events.csv
 QUIZ_FILE: quiz.csv
 QUIZ_STATS_FILE: quiz_stats.csv
-SURVEY_GOOGLE_FILE: survey_google.csv # raw file from Google (input)
-SURVEY_GOOGLE_FILE_CLEAN: survey_google_clean.csv # cleaned file from Google 
-SURVEY_GOOGLE_FILE_CLEAN_MAP: survey_google_clean_map.csv # mapping of Q_i
-SURVEY_GOOGLE_KEY_COLUMN: Form blueprint # the session-id / case-id
-SURVEY_GOOGLE_FILE_STATS: survey_google_stats.csv # stats about SURVEY_GOOGLE_FILE_CLEAN
+SURVEY_GOOGLE_FILE: survey_google.csv                           # raw file from Google Survey (input)
+SURVEY_GOOGLE_FILE_CLEAN: survey_google_clean.csv               # cleaned file from Google Survey
+SURVEY_GOOGLE_FILE_CLEAN_MAP: survey_google_clean_map.csv       # mapping of Q_i
+SURVEY_GOOGLE_KEY_COLUMN: Form blueprint                        # the session-id / case-id from Google Survey
+SURVEY_GOOGLE_FILE_STATS: survey_google_stats.csv               # stats about SURVEY_GOOGLE_FILE_CLEAN
 SUS_FILE: sus_apprendimento_ueq.csv
 CSV_SEP: ;
 CASE_LEN_THRESHOLD: 5
 CASE_TIME_THRESHOLD: 3
+DISCO_CASES_FILE: disco_cases.csv         # List of cases already filtered in DISC on which to filter the complete database
