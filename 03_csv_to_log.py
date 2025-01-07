@@ -1,4 +1,6 @@
-# 03_csv_to_log.py
+"""
+03_csv_to_log.py
+"""
 
 ### IMPORT ###
 from pathlib import Path
@@ -555,7 +557,7 @@ def main():
     print(">> Reading Quiz data")
     path_quiz = Path(stats_dir) / quiz_stats_file
     print("Path:", str(path_quiz))
-    col_list = ["sessionID", "QuizSessionCount", "QuizAnswerCorrectTotal", "QuizAnswerWrongTotal", "QuizAnswerCorrectRatioOverCount", "QuizAnswerCorrectRatioOverAll"]
+    col_list = ["sessionID", "QuizSessionCount", "QuizAnswerCorrectTotal", "QuizAnswerWrongTotal", "QuizAnswerCorrectRatioOverCount", "QuizAnswerCorrectRatioOverAll", "QuizSessionCount_P3","QuizAnswerCorrectTotal_P3","QuizAnswerWrongTotal_P3","QuizAnswerCorrectRatioOverCount_P3","QuizAnswerCorrectRatioOverAll_P3"]
     df_quiz = df_read_csv_data(path_quiz, col_list, ";")
     print(df_quiz.head())
     print()
@@ -613,7 +615,7 @@ def main():
 
     # Final list of columns in the event log
     columns_to_keep = ['sessionID', 'pageTitle', 'menu', 'pageOrder', 'pagePara', 'eventPage','eventTimestamp', 'eventPara', 'click_num', 'dbclick_num',
-                    'QuizSessionCount', 'QuizAnswerCorrectTotal', 'QuizAnswerWrongTotal',  'QuizAnswerCorrectRatioOverCount', 'QuizAnswerCorrectRatioOverAll',
+                    'QuizSessionCount', 'QuizAnswerCorrectTotal', 'QuizAnswerWrongTotal',  'QuizAnswerCorrectRatioOverCount', 'QuizAnswerCorrectRatioOverAll', 'QuizSessionCount_P3','QuizAnswerCorrectTotal_P3','QuizAnswerWrongTotal_P3','QuizAnswerCorrectRatioOverCount_P3','QuizAnswerCorrectRatioOverAll_P3',
                     'Q_1', 'Q_2', 'Q_3', 'Q_4', 'Q_5', 'Q_6', 'Q_7', 'Q_8', 'Q_9', 'Q_10', 'Q_11', 'Q_12', 'Q_13', 'Q_14', 'Q_15', 
                     'Q_16', 'Q_17', 'Q_18', 'Q_19', 'Q_20', 'Q_21', 'Q_22', 'Q_23', 'Q_24', 'Q_25', 'Q_26', 'Q_27', 'Q_28'] + col_list_sus
     print(f"Columns in the vent log ({len(columns_to_keep)}): ", columns_to_keep)

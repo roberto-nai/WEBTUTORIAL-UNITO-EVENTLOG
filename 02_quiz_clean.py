@@ -1,8 +1,11 @@
-# 02_quiz_clean.py
+"""
+02_quiz_clean.py
+
+Given the raw export of the quizzes, it generates a file with the results for each session-id
+"""
 
 ### IMPORT ###
 from pathlib import Path
-import csv
 from datetime import datetime
 import pandas as pd
 
@@ -19,13 +22,14 @@ quiz_file = str(yaml_config["QUIZ_FILE"]) # input
 quiz_stats_file = str(yaml_config["QUIZ_STATS_FILE"]) # output
 
 ### FUNCTIONS ###
-def quiz_correct_ratio(df: pd.DataFrame, key_column:str) -> pd.DataFrame:
+def quiz_correct_ratio(df: pd.DataFrame, key_column: str, filter_list: list) -> pd.DataFrame:
     """
     Starting from a dataframe, it groups quiz results by sessionID
 
     Parameters:
         df (pd.DataFrame): The dataframe with data.
-        key_column (str): The column name
+        key_column (str): The ID column name.
+        filter_list (list): List of strings to filter the dataframe by pageTitle.
     Returns:
         pd.DataFrame: The dataframe with data grouped by.
     """
@@ -42,27 +46,30 @@ def quiz_correct_ratio(df: pd.DataFrame, key_column:str) -> pd.DataFrame:
 
     grouped_df['QuizAnswerCorrectRatioOverCount'] = (grouped_df['QuizAnswerCorrectTotal'] / grouped_df['QuizSessionCount']).round(2)
     grouped_df['QuizAnswerCorrectRatioOverAll'] = (grouped_df['QuizAnswerCorrectTotal'] / 10).round(2)
-    
-    return grouped_df
 
-def extract_quiz_summary(df: pd.DataFrame, key_column: str) -> pd.DataFrame:
-    """
-    Extracts the quiz summary for each distinct sessionID from a dataframe.
-
-    Parameters:
-        df (pd.DataFrame): The dataframe containing the data.
-        key_column (str): The column name to group by (typically sessionID).
-
-    Returns:
-        pd.DataFrame: A dataframe with the quiz summary for each distinct sessionID.
-    """
-    # Select the relevant columns
-    summary_columns = [key_column, 'QuizSessionCount', 'QuizAnswerCorrectTotal', 'QuizAnswerCorrectRatioOverCount', 'QuizAnswerCorrectRatioOverAll']
+    # Filter the dataframe by pageTitle using the filter_list
+    filtered_df = df[df['pageTitle'].isin(filter_list)]
     
-    # Drop duplicates to get distinct sessionID summaries
-    summary_df = df[summary_columns].drop_duplicates()
+    # Group the filtered dataframe
+    filtered_grouped_df = filtered_df.groupby(key_column).agg(
+        QuizSessionCount_P3=pd.NamedAgg(column=key_column, aggfunc='count'),
+        QuizAnswerCorrectTotal_P3=pd.NamedAgg(column='answerCorrect', aggfunc='sum'),
+        QuizAnswerWrongTotal_P3=pd.NamedAgg(column='answerCorrect', aggfunc=lambda x: (x == 0).sum())
+    ).reset_index()
     
-    return summary_df
+    # Ensure columns as integer for the filtered data
+    filtered_grouped_df['QuizSessionCount_P3'] = filtered_grouped_df['QuizSessionCount_P3'].astype(int)
+    filtered_grouped_df['QuizAnswerCorrectTotal_P3'] = filtered_grouped_df['QuizAnswerCorrectTotal_P3'].astype(int)
+    filtered_grouped_df['QuizAnswerWrongTotal_P3'] = filtered_grouped_df['QuizAnswerWrongTotal_P3'].astype(int)
+
+    filtered_grouped_df['QuizAnswerCorrectRatioOverCount_P3'] = (filtered_grouped_df['QuizAnswerCorrectTotal_P3'] / filtered_grouped_df['QuizSessionCount_P3']).round(2)
+    filtered_grouped_df['QuizAnswerCorrectRatioOverAll_P3'] = (filtered_grouped_df['QuizAnswerCorrectTotal_P3'] / 3).round(2)
+    
+    # Merge the filtered_grouped_df with the original grouped_df on the key_column
+    merged_df = grouped_df.merge(filtered_grouped_df, on=key_column, how='left')
+    
+    return merged_df
+
 
 ### MAIN ###
 def main():
@@ -74,6 +81,12 @@ def main():
     print("Start process:", str(start_time))
     print()
 
+    # List of prefixes
+    print(">> Prefix list")
+    prefix_list = ["Introduzione-Quiz", "Primo programma-Quiz", "Variabili-Quiz"] # first 3 common tracks
+    print(f"Values: {len(prefix_list)}: {prefix_list}")
+    print()
+
     # Quiz
     print(">> Reading Quiz data")
     path_quiz = Path(data_dir) / quiz_file
@@ -83,7 +96,7 @@ def main():
     
     # Quiz group by sessionID
     print("> Getting Quiz ratio totals")
-    df_quiz_ratio = quiz_correct_ratio(df_quiz, "sessionID")
+    df_quiz_ratio = quiz_correct_ratio(df_quiz, "sessionID", prefix_list)
     print(df_quiz_ratio.head())
     print()
 

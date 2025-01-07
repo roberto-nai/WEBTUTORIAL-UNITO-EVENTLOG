@@ -6,7 +6,7 @@ STATS_DIR: stats      # directory with event log statistics
 PLOTS_DIR: plots      # directory with plots
 EVENTS_FILE: events.csv
 QUIZ_FILE: quiz.csv
-QUIZ_STATS_FILE: quiz_stats.csv
+QUIZ_STATS_FILE: quiz_stats.csv                                 # Quiz stats and values for event log attributes
 SURVEY_GOOGLE_FILE: survey_google.csv                           # raw file from Google Survey (input)
 SURVEY_GOOGLE_FILE_CLEAN: survey_google_clean.csv               # cleaned file from Google Survey
 SURVEY_GOOGLE_FILE_CLEAN_MAP: survey_google_clean_map.csv       # mapping of Q_i
