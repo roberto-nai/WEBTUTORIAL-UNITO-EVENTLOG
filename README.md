@@ -7,7 +7,7 @@ This project transforms three tables of a MySQL database (in CSV format) into an
 Web tutorial from which events were recorded: [https://webtutorial.altervista.org/python/page-01.php](https://webtutorial.altervista.org/python/page-01.php)  
 
 ### > Script Execution
-```01_survey_clean.py```
+```01_survey_clean.py```  
 Starting from the raw survey data (```SURVEY_GOOGLE_FILE```), it cleans the columns with the answers and creates two new files ```SURVEY_FILE_CLEAN``` and ```SURVEY_GOOGLE_FILE_CLEAN_MAP```. Save statistics in ```SURVEY_GOOGLE_FILE_STATS```.  
 ```02_quiz_clean.py```  
 Starting from the raw quiz data (```QUIZ_FILE```), it extracts quiz statistics for each sessionID (total quizzes, correct, incorrect, percentage of correct). Save statistics in ```QUIZ_STATS_FILE```.    
@@ -17,6 +17,12 @@ Starting from the raw events data (```EVENTS_FILE```), it extracts the events fo
 Enriches the event log created in the previous step.  
 ```05_log_correlations.ipynb```  
 It performs the Shapiro-Wilk test on the features of interest, then performs Pearson's correlation (for normal distributions) or Spearman's correlation (for non-normal distributions).  
+```06_log_survey_remove.ipynb```  
+Removes events of type SURVEY from the event log.   
+```07_log_complexity.ipynb```  
+It calculates the cyclomatic complexity (CC) and the Coefficient of Variation (CV) on the event log.  
+ ```08_log_analysis.ipynb```  
+Calculate event log statistics.  
 
 
 ### > Script Dependencies
@@ -29,21 +35,7 @@ Directory with the configuration file in YAML format (```config.yml```) and scri
 Data raw obtained from the database (in CSV format).  
 ```data_log```    
 Event log raw obtained from database (in CSV format) to be filtered in DISCO or ProM; ```*_PAGE_*.csv``` is the event log at the web page level, ```*_PARA_*.csv``` is the event log at the paragraph level of the web page.  
+```plots```    
+Charts related to statistics.  
 ```stats```    
 Survey, quiz, and event log statistics. 
-
-## > Share
-If you use it, please cite:    
-```
-@InProceedings{10.1007/978-3-031-42682-7_48,
-author="Nai, Roberto and Sulis, Emilio and Marengo, Elisa and Vinai, Manuela and Capecchi, Sara",
-editor="Viberg, Olga and Jivet, Ioana and Mu{\~{n}}oz-Merino, Pedro J. and Perifanou, Maria and Papathoma, Tina",
-title="Process Mining on Students' Web Learning Traces: A Case Study with an Ethnographic Analysis",
-booktitle="Responsive and Sustainable Educational Futures",
-year="2023",
-publisher="Springer Nature Switzerland",
-address="Cham",
-pages="599--604",
-isbn="978-3-031-42682-7"
-}
-```
