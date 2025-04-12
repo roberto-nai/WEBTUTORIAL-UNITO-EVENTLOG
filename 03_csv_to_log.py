@@ -744,18 +744,43 @@ def main():
     ### Filter based on DISCO ###
     if filter_disco_cases == 1:
         print("> Filtering Cases already chosen in DISCO")
-        df_log_merge_2_para_final = df_log_merge_2_para_final[df_log_merge_2_para_final[id_column].isin(df_disco_list)]
+        df_log_merge_2_para_final_included = df_log_merge_2_para_final[df_log_merge_2_para_final[id_column].isin(df_disco_list)]
         print("Cases after DISCO filter (para):", df_log_merge_2_para_final[id_column].nunique())
-        df_log_merge_2_page_final = df_log_merge_2_page_final[df_log_merge_2_page_final[id_column].isin(df_disco_list)]
+        df_log_merge_2_page_final_included = df_log_merge_2_page_final[df_log_merge_2_page_final[id_column].isin(df_disco_list)]
         print("Cases after DISCO filter (page):", df_log_merge_2_page_final[id_column].nunique())
         print()
+
+        # Get the list of cases not in DISCO (excluded)
+        df_log_merge_2_para_final_excluded = df_log_merge_2_para_final[~df_log_merge_2_para_final[id_column].isin(df_disco_list)]
+        df_log_merge_2_page_final_excluded = df_log_merge_2_page_final[~df_log_merge_2_page_final[id_column].isin(df_disco_list)]
 
         print("> Saving filtered data")
         path_out = Path(log_dir) / "edu_event_log_PAGE_raw_filtered_DISCO_ter.csv"
         print("Saving final event log to:", path_out)
-        df_log_merge_2_page_final.to_csv(path_out, sep=";", index=False)
+        df_log_merge_2_page_final_included.to_csv(path_out, sep=";", index=False)
         
         path_out = Path(log_dir) / "edu_event_log_PARA_raw_filtered_DISCO_ter.csv"
+        print("Saving final event log to:", path_out)
+        df_log_merge_2_para_final_included.to_csv(path_out, sep=";", index=False)
+        print()
+
+        print("> Saving excluded data")
+        path_out = Path(log_dir) / "edu_event_log_PAGE_excluded_DISCO_ter.csv"
+        print("Saving excluded event log to:", path_out)
+        df_log_merge_2_page_final_excluded.to_csv(path_out, sep=";", index=False)
+        
+        path_out = Path(log_dir) / "edu_event_log_PARA_excluded_DISCO_ter.csv"
+        print("Saving excluded event log to:", path_out)
+        df_log_merge_2_para_final_excluded.to_csv(path_out, sep=";", index=False)
+        print()
+    else:
+        print("DISCO filter not applied")
+        print()
+        path_out = Path(log_dir) / "edu_event_log_PAGE_raw_ter.csv"
+        print("Saving final event log to:", path_out)
+        df_log_merge_2_page_final.to_csv(path_out, sep=";", index=False)
+        
+        path_out = Path(log_dir) / "edu_event_log_PARA_raw_ter.csv"
         print("Saving final event log to:", path_out)
         df_log_merge_2_para_final.to_csv(path_out, sep=";", index=False)
         print()
