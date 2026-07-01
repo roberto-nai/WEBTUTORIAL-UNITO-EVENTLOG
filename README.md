@@ -5,6 +5,7 @@ This project transforms three tables of a MySQL database (in CSV format) into an
 
 ### Python Web Tutorial
 Web tutorial from which events were recorded: [https://webtutorial.altervista.org/python/page-01.php](https://webtutorial.altervista.org/python/page-01.php)  
+Web tutorial project: [https://github.com/roberto-nai/WEBTUTORIAL-UNITO](https://github.com/roberto-nai/WEBTUTORIAL-UNITO)
 
 ### > Script Execution
 ```01_survey_clean.py```  
